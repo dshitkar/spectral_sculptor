@@ -1,22 +1,34 @@
-# Importing the important stuff
-
+import os
 import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 from scipy.fft import fft, ifft
 from scipy.signal import stft, istft
 import soundfile as sf
+import librosa
 
 def load_audio(filename):
     audio_data, samplerate = sf.read(filename)
-    return audio_data, samplerate
+    print(f"Audio File Length: {len(audio_data)}")  
+
+    if samplerate != 48000:  # Resample if not already at 48000 Hz
+         audio_data = librosa.resample(audio_data, orig_sr=samplerate, target_sr=48000)
+         samplerate = 48000 
+
+    return audio_data, samplerate 
 
 def save_audio(audio_data, filename, samplerate):
     sf.write(filename, audio_data, samplerate)
 
 def spectral_morph(audio1, audio2, morph_ratios, grain_size):
-    _, _, Zxx1 = stft(audio1, window='hann', nperseg=grain_size * 2, noverlap=grain_size)
-    _, _, Zxx2 = stft(audio2, window='hann', nperseg=grain_size * 2, noverlap=grain_size)
+    nperseg = 512  # Smaller nperseg 
+    noverlap = nperseg // 2  # Ensure noverlap is smaller
+
+    _, _, Zxx1 = stft(audio1, window='hann')
+    _, _, Zxx2 = stft(audio2, window='hann')
+
+    print(Zxx1.shape)
+    print(Zxx2.shape)
 
     Zxx_morphed = (1 - morph_ratios) * Zxx1 + morph_ratios * Zxx2
     _, audio_morphed = istft(Zxx_morphed)
@@ -35,18 +47,25 @@ def load_file2():
     file2_label.config(text=f"Loaded: {filename}")
 
 def process_and_save():
+    global audio_data1, audio_data2 
+
     if audio_data1 is not None and audio_data2 is not None:
-        # Placeholder - You'll need UI controls for morph_ratios and grain_size
+        # Ensure same length before morphing
+        audio_data1, audio_data2 = ensure_same_length(audio_data1, audio_data2)
+
         morph_ratios = 0.5  # Example: Morph halfway between sounds
         grain_size = 1024
 
         morphed_audio = spectral_morph(audio_data1, audio_data2, morph_ratios, grain_size)
 
         filename = filedialog.asksaveasfilename(title="Save Morphed Audio")
-        save_audio(morphed_audio, filename, samplerate1)  # Assuming same sample rate
+        save_audio(morphed_audio, filename, samplerate1)  
     else:
-        #  Handle the case when one or both files are missing (error message, etc.)
         print("Please load both audio files first.")
+
+def ensure_same_length(audio_data1, audio_data2):
+    min_length = min(len(audio_data1), len(audio_data2))
+    return audio_data1[:min_length], audio_data2[:min_length] 
 
 # Global variables (ideally, find a better way to manage state)
 audio_data1, audio_data2 = None, None
