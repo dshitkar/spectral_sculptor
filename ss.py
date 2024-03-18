@@ -1,3 +1,5 @@
+# Importing the important stuff
+
 import tkinter as tk
 from tkinter import filedialog
 import numpy as np
